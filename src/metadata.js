@@ -12,7 +12,7 @@ export const metadata = {
   external_url: '',
   properties: {
     files: [],
-    category: ''
+    category: 'image'
   }
 }
 
@@ -43,6 +43,16 @@ export class CreateMetadataArgs {
   }
 }
 
+export class UpdateMetadataArgs {
+  instruction = 1;
+
+  constructor(args) {
+    this.data = args.data ? args.data : null;
+    this.updateAuthority = args.updateAuthority ? args.updateAuthority : null;
+    this.primarySaleHappened = args.primarySaleHappened;
+  }
+}
+
 export const METADATA_SCHEMA = new Map([
   [
     CreateMetadataArgs,
@@ -52,6 +62,18 @@ export const METADATA_SCHEMA = new Map([
         ['instruction', 'u8'],
         ['data', Data],
         ['isMutable', 'u8'], // bool
+      ],
+    },
+  ],
+  [
+    UpdateMetadataArgs,
+    {
+      kind: 'struct',
+      fields: [
+        ['instruction', 'u8'],
+        ['data', { kind: 'option', type: Data }],
+        ['updateAuthority', { kind: 'option', type: 'pubkey' }],
+        ['primarySaleHappened', { kind: 'option', type: 'u8' }],
       ],
     },
   ],

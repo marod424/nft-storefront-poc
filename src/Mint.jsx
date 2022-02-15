@@ -3,10 +3,11 @@ import { useWallet, useConnection } from '@solana/wallet-adapter-react'
 import { WalletNotConnectedError } from '@solana/wallet-adapter-base'
 import { Transaction, Keypair, SystemProgram, PublicKey, TransactionInstruction, SYSVAR_RENT_PUBKEY, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { Token, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, MintLayout } from '@solana/spl-token'
-import { CreateMetadataArgs, Data, Creator, metadata, METADATA_PROGRAM_ID, METADATA_SCHEMA } from './metadata'
+import { CreateMetadataArgs, UpdateMetadataArgs, Data, Creator, metadata, METADATA_PROGRAM_ID, METADATA_SCHEMA } from './metadata'
 import { calculate } from '@metaplex/arweave-cost';
 import { serialize } from 'borsh'
 import { useCallback } from 'react'
+import aicat from './aicat.jpg'
 
 function Mint() {  
   const { connection } = useConnection()
@@ -16,18 +17,24 @@ function Mint() {
     async () => {
       if (!publicKey) throw new WalletNotConnectedError()
       
+      const image = 'aicat.jpg'
+      const req = await fetch(aicat)
+      const blob = await req.blob()
+      const nftFile = new File([blob], image)
+
       // 0. Pay for upload
       const metadataContent = {
         name: metadata.name,
         symbol: metadata.symbol,
         description: metadata.description,
         seller_fee_basis_points: metadata.sellerFeeBasisPoints,
-        image: metadata.image,
+        image,
         animation_url: metadata.animation_url,
         attributes: metadata.attributes,
         external_url: metadata.external_url,
         properties: {
           ...metadata.properties,
+          files: [{ uri: image, type: 'image/jpeg' }],
           creators: [{ address: publicKey.toBase58(), share: 100 }]
         }
       }
@@ -35,7 +42,7 @@ function Mint() {
       const AR_SOL_HOLDER_ID = '6FKvsq4ydWFci6nGq9ckbjYMtnmaqAoatz5c9XWjiDuS'
       const arHolder = new PublicKey(AR_SOL_HOLDER_ID)
       const metadataFile = new File([JSON.stringify(metadataContent)], 'metadata.json')
-      const storageCost = await calculate([metadataFile.size])
+      const storageCost = await calculate([nftFile.size, metadataFile.size])
 
       const payForStorageInstruction = SystemProgram.transfer({
         fromPubkey: publicKey,
@@ -46,16 +53,23 @@ function Mint() {
       const MEMO_ID = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'
       const memoProgram = new PublicKey(MEMO_ID)
 
+      const files = [nftFile, metadataFile]
       const encoder = new TextEncoder()
-      const encodedMetadata = encoder.encode(metadataFile.text())
-      const hashBuffer = await crypto.subtle.digest('SHA-256', encodedMetadata)
-      const hashArray = Array.from(new Uint8Array(hashBuffer))
-      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+      let storageHashInstructions = [];
 
-      const storageHashInstruction = new TransactionInstruction({
-        keys: [],
-        programId: memoProgram,
-        data: Buffer.from(hashHex)
+      files.forEach(async (file) => {
+        const encodedFile = encoder.encode(file.text())
+        const hashBuffer = await crypto.subtle.digest('SHA-256', encodedFile)
+        const hashArray = Array.from(new Uint8Array(hashBuffer))
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  
+        storageHashInstructions.push(
+          new TransactionInstruction({
+            keys: [],
+            programId: memoProgram,
+            data: Buffer.from(hashHex)
+          })
+        )
       })
 
       // 1. Create the mint account
@@ -128,7 +142,7 @@ function Mint() {
               name: metadata.name,
               symbol: metadata.symbol,
               uri: ' '.repeat(64), // size of url for arweave
-              // sellerFeeBasisPoints: metadata.sellerFeeBasisPoints,
+              sellerFeeBasisPoints: metadata.sellerFeeBasisPoints,
               creators: [
                 new Creator({ address: publicKey, verified: true, share: 100 })
               ]
@@ -140,8 +154,9 @@ function Mint() {
 
       // 4. Create and send transaction
       const tx = new Transaction().add(
-        // payForStorageInstruction,
-        // storageHashInstruction,
+        payForStorageInstruction,
+        storageHashInstructions[0],
+        storageHashInstructions[1],
         createMintAccountInstruction,
         createInitMintInstruction,
         createAssociatedTokenAccountInstruction,
@@ -149,10 +164,77 @@ function Mint() {
       )
 
       const signature = await sendTransaction(tx, connection, { signers: [mintAccount]})
-      const result = await connection.confirmTransaction(signature, 'processed')
+      const confirmation = await connection.confirmTransaction(signature, 'processed')
+
+      console.log('signature', signature)
+      console.log('confirmation', confirmation)
+
+      // 5. Upload the files
+      const data = new FormData()
+
+      data.append('transaction', signature)
+      data.append('env', 'devnet')
+
+      const tags = files.reduce((acc, f) => {
+        acc[f.name] = [{ name: 'mint', value: mintAccount.publicKey.toBase58() }]
+        return acc;
+      }, {})
+
+      data.append('tags', JSON.stringify(tags))
+
+      files.forEach(f => data.append('file[]', f))
+
+      const ARWEAVE_UPLOAD_ENDPOINT = 'https://us-central1-metaplex-studios.cloudfunctions.net/uploadFile'
+      const resp = await fetch(ARWEAVE_UPLOAD_ENDPOINT, { method: 'POST', body: data })
+      const result = await resp.json()
 
       console.log('result', result)
 
+      // 6. Update the image url
+      const manifestFile = result.messages.find(m => m.filename === 'manifest.json')
+      const arweaveLink = `https://arweave.net/${manifestFile.transactionId}`;
+
+      const updateMetadataInstruction = new TransactionInstruction({
+        keys: [
+          { pubkey: metadataPDA[0], isSigner: false, isWritable: true },
+          { pubkey: publicKey, isSigner: true, isWritable: false }
+        ],
+        programId: metadataProgram.publicKey,
+        data: Buffer.from(serialize(
+          METADATA_SCHEMA, 
+          new UpdateMetadataArgs({
+            data: new Data({
+              name: metadata.name,
+              symbol: metadata.symbol,
+              uri: arweaveLink,
+              sellerFeeBasisPoints: metadata.sellerFeeBasisPoints,
+              creators: [
+                new Creator({ address: publicKey, verified: true, share: 100 })
+              ]
+            }),
+            updateAuthority: undefined,
+            primarySaleHappened: null
+          })
+        ))
+      })
+
+      const createMintToInstruction = Token.createMintToInstruction(
+        TOKEN_PROGRAM_ID,
+        mintAccount.publicKey,
+        associatedTokenPDA[0],
+        publicKey,
+        [],
+        1
+      )
+
+      // 7. Create and send update transaction
+      const updateTx = new Transaction().add(
+        updateMetadataInstruction,
+        createMintToInstruction
+      )
+
+      const txId = await sendTransaction(updateTx, connection)
+      console.log('txId', txId)
     },
     [publicKey, sendTransaction, connection]
   )
