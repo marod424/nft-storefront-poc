@@ -8,7 +8,7 @@ import { calculate } from '@metaplex/arweave-cost';
 import { serialize } from 'borsh'
 import { useCallback } from 'react'
 
-function Mint() {
+function Mint() {  
   const { connection } = useConnection()
   const { publicKey, sendTransaction } = useWallet()
 

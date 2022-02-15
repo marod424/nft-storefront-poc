@@ -9,7 +9,6 @@
   },
   "dependencies": {
     "@metaplex/arweave-cost": "^2.0.0",
-    "@metaplex/js": "^4.12.0",
     "@popperjs/core": "^2.11.2",
     "@solana/spl-token": "^0.1.8",
     "@solana/wallet-adapter-base": "^0.9.3",

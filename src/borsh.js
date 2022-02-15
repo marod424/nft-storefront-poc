@@ -13,5 +13,3 @@ export const extendBorsh = () => {
     writer.writeFixedArray(value.toBuffer())
   };
 }
-
-extendBorsh()
