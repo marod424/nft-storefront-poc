@@ -1,63 +1,78 @@
-import Button from 'react-bootstrap/Button'
+import Spinner from 'react-bootstrap/Spinner'
+import Container from 'react-bootstrap/Container'
+import Row from 'react-bootstrap/Row'
+import Col from 'react-bootstrap/Col'
 import { useWallet, useConnection } from '@solana/wallet-adapter-react'
-import { WalletNotConnectedError } from '@solana/wallet-adapter-base'
-import { PublicKey } from '@solana/web3.js'
-import { METADATA_PROGRAM_ID, MAX_METADATA_LEN, MAX_DATA_SIZE, CREATOR_ARRAY_START, decodeMetadata } from './metadata'
-import { useCallback, useState } from 'react'
-import bs58 from 'bs58'
+import { useState, useEffect } from 'react'
 import { programs } from '@metaplex/js'
 
 function Collectibles() {
+  const [isLoading, setIsLoading] = useState(false)
   const [collectibles, setCollectibles] = useState([])
+  const [images, setImages] = useState([])
 
   const { connection } = useConnection()
   const { publicKey } = useWallet()
 
-  const loadCollectiblesHandler = useCallback(
+  useEffect(
     async () => {
-      if (!publicKey) throw new WalletNotConnectedError()
+      if (!publicKey) return
 
-      // 1. Get Metadata accounts
-      const metadataProgram = { publicKey: new PublicKey(METADATA_PROGRAM_ID) }
-      const metadataAccounts = await connection.getProgramAccounts(
-        metadataProgram.publicKey,
-        {
-          // The mint address is located at byte 33 and lasts for 32 bytes.
-          dataSlice: { offset: 33, length: 32 },
-          filters: [
-            { dataSize: MAX_METADATA_LEN }, // Only get Metadata accounts.
-            { 
-              memcmp: 
-              { 
-                offset: 1, 
-                bytes: publicKey.toBase58()
-              }
-            }
-          ]
-        }
-      )
+      setIsLoading(true)
 
-      const accountData = metadataAccounts.map(ma => bs58.encode(ma.account.data))
-      const tokenMint = new PublicKey(accountData[1])
+      const { metadata: { Metadata }} = programs
+      const data = await Metadata.findDataByOwner(connection, publicKey)
+      const collectibles = data.map(d => d.data)
 
-      // 2. Get NFT Metadata
-      const collectibles = await programs.metadata.Metadata.findByMint(connection, tokenMint)
+      setCollectibles(collectibles)
+      setIsLoading(false)
+
       console.log('collectibles', collectibles)
+    },
+    [publicKey, connection]
+  )
+
+  useEffect(
+    async () => {
+      const uris = collectibles.map(c => c.uri)
+
+      Promise.all
+      (
+        uris.map(async (uri) => {
+          const res = await fetch(uri)
+          return res.json()
+        })
+      )
+      .then(result => setImages(result.map(r => r.image)))
 
     },
-    [publicKey, collectibles, connection]
+    [collectibles]
   )
 
   return (
-    <div>
-      <h2>Your Collectibles</h2>
-      
-      <Button onClick={loadCollectiblesHandler} disabled={!publicKey}>Load Collectibles</Button>
+    <Container>
+      <Row>
+        <Col><h3>Your Collectibles</h3></Col>
+      </Row>
 
-      <div>
+      <Row>
+        {isLoading && <Spinner animation="border" />}
 
-      </div>
-    </div>
+        {collectibles.map((item, index) => {
+          return <pre key={index}>{item.uri}</pre>
+        })}
+      </Row>
+
+      <Row>
+        {images.map((img, index) => {
+          return (
+            <Col key={index}>
+              <img src={img} width="200" height="200" />
+            </Col>
+          )
+        })}
+      </Row>
+    </Container>
   )
 }
 
