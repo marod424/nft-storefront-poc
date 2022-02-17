@@ -1,29 +1,15 @@
-import { WalletAdapterNetwork } from '@solana/wallet-adapter-base'
-import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react'
-import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets'
-import { WalletModalProvider, WalletMultiButton } from '@solana/wallet-adapter-react-ui'
-import { clusterApiUrl } from '@solana/web3.js'
-import { useMemo } from 'react'
+import Navbar from 'react-bootstrap/Navbar'
+import Container from 'react-bootstrap/Container'
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 
-
-function Wallet({ children }) {
-  const network = WalletAdapterNetwork.Devnet
-  const endpoint = useMemo(() => clusterApiUrl(network), [network])
-
-  const wallets = useMemo(() => [
-    new PhantomWalletAdapter(),
-    new SolflareWalletAdapter({ network }),
-  ], [network])
-
+function Wallet() {
   return (
-    <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>
-          <WalletMultiButton />
-          {children}
-        </WalletModalProvider>
-      </WalletProvider>
-    </ConnectionProvider>
+    <Navbar bg="light" expand="lg">
+      <Container>
+        <Navbar.Brand>Open Storefront</Navbar.Brand>
+        <WalletMultiButton />
+      </Container>
+    </Navbar>
   )
 }
 
