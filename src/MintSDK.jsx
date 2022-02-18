@@ -7,7 +7,6 @@ import { actions, programs, transactions } from '@metaplex/js'
 import { calculate } from '@metaplex/arweave-cost';
 import arweave, { AR_SOL_HOLDER_ID } from './arweave'
 import { useCallback, useState } from 'react'
-
 import aicat from './aicat.jpg'
 
 function MintSDK() {  

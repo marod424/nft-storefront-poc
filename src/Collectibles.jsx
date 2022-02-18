@@ -3,8 +3,8 @@ import Container from 'react-bootstrap/Container'
 import Row from 'react-bootstrap/Row'
 import Col from 'react-bootstrap/Col'
 import Image from 'react-bootstrap/Image'
-import { useWallet, useConnection } from '@solana/wallet-adapter-react'
-import { useState, useEffect } from 'react'
+import { useConnection, useAnchorWallet } from '@solana/wallet-adapter-react'
+import { useState, useEffect, useCallback } from 'react'
 import { programs } from '@metaplex/js'
 
 function Collectibles() {
@@ -12,17 +12,20 @@ function Collectibles() {
   const [collectibles, setCollectibles] = useState([])
   const [images, setImages] = useState([])
 
+  const wallet = useAnchorWallet()
   const { connection } = useConnection()
-  const { publicKey } = useWallet()
 
   useEffect(
     async () => {
-      if (!publicKey) return
+      if (!wallet?.publicKey) {
+        setCollectibles([])
+        return
+      }
 
       setIsLoading(true)
 
       const { metadata: { Metadata }} = programs
-      const data = await Metadata.findDataByOwner(connection, publicKey)
+      const data = await Metadata.findByOwnerV2(connection, wallet.publicKey)
       const collectibles = data.map(d => d.data)
 
       setCollectibles(collectibles)
@@ -30,12 +33,12 @@ function Collectibles() {
 
       console.log('collectibles', collectibles)
     },
-    [publicKey, connection]
+    [wallet, connection]
   )
 
   useEffect(
     async () => {
-      const uris = collectibles.map(c => c.uri)
+      const uris = collectibles.map(c => c.data.uri)
 
       Promise.all
       (
@@ -49,6 +52,19 @@ function Collectibles() {
     [collectibles]
   )
 
+  const handleListForSale = useCallback(
+    async (index) => {
+      console.log('handleListForSale', index)
+      console.log('collectible', collectibles[index])
+
+      const collectible = collectibles[index]
+      const mint = collectible.mint
+
+      console.log('mint', mint)
+    },
+    [wallet, connection]
+  )
+
   return (
     <Container>
       <Row>
@@ -56,10 +72,17 @@ function Collectibles() {
       </Row>
 
       <Row>
-        {images.map((img, index) => {
+        {isLoading && <Spinner animation="border" />}
+        {!isLoading && images.map((img, index) => {
           return (
             <Col key={index}>
-              <Image src={img} rounded="true" width="200" height="200" />
+              <Image 
+                src={img} 
+                onClick={() => handleListForSale(index)} 
+                rounded="true" 
+                width="200" 
+                height="200" 
+              />
             </Col>
           )
         })}
