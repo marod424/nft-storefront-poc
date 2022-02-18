@@ -1,7 +1,4 @@
 import Spinner from 'react-bootstrap/Spinner'
-import Container from 'react-bootstrap/Container'
-import Row from 'react-bootstrap/Row'
-import Col from 'react-bootstrap/Col'
 import Button from 'react-bootstrap/Button'
 import { useWallet, useConnection } from '@solana/wallet-adapter-react'
 import { WalletNotConnectedError } from '@solana/wallet-adapter-base'
@@ -52,9 +49,6 @@ function Mint() {
         const AR_SOL_HOLDER_ID = '6FKvsq4ydWFci6nGq9ckbjYMtnmaqAoatz5c9XWjiDuS'
         const arHolder = new PublicKey(AR_SOL_HOLDER_ID)
         const metadataFile = new File([JSON.stringify(metadataContent)], 'metadata.json')
-
-        console.log(nftFile.size)
-
         const storageCost = await calculate([nftFile.size, metadataFile.size])
   
         const payForStorageInstruction = SystemProgram.transfer({
@@ -258,16 +252,10 @@ function Mint() {
   )
 
   return (
-    <Container>
-      <Row className="justify-content-md-center">
-        <Col md="auto">
-          <Button onClick={mintHandler} disabled={!publicKey}>
-            {isMinting && <Spinner as="span" animation="grow" size="sm" />}
-            {isMinting ? ' Minting...' : 'Mint'}
-          </Button>
-        </Col>
-      </Row>
-    </Container>
+    <Button onClick={mintHandler} disabled={!publicKey}>
+      {isMinting && <Spinner as="span" animation="grow" size="sm" />}
+      {isMinting ? ' Minting...' : 'Mint'}
+    </Button>
   )
 }
 

@@ -2,6 +2,7 @@ import Spinner from 'react-bootstrap/Spinner'
 import Container from 'react-bootstrap/Container'
 import Row from 'react-bootstrap/Row'
 import Col from 'react-bootstrap/Col'
+import Image from 'react-bootstrap/Image'
 import { useWallet, useConnection } from '@solana/wallet-adapter-react'
 import { useState, useEffect } from 'react'
 import { programs } from '@metaplex/js'
@@ -44,7 +45,6 @@ function Collectibles() {
         })
       )
       .then(result => setImages(result.map(r => r.image)))
-
     },
     [collectibles]
   )
@@ -56,18 +56,10 @@ function Collectibles() {
       </Row>
 
       <Row>
-        {isLoading && <Spinner animation="border" />}
-
-        {collectibles.map((item, index) => {
-          return <pre key={index}>{item.uri}</pre>
-        })}
-      </Row>
-
-      <Row>
         {images.map((img, index) => {
           return (
             <Col key={index}>
-              <img src={img} width="200" height="200" />
+              <Image src={img} rounded="true" width="200" height="200" />
             </Col>
           )
         })}
