@@ -1,4 +1,3 @@
-
 import WalletContext from './WalletContext'
 import Store from './Store'
 import './App.css'
