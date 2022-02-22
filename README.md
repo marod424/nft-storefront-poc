@@ -14,11 +14,11 @@ Example applications for exploration and discovery, with an eventual product goa
 ## Metaplex
 
 - Solana based NFT protocol
-- [poc](metaplex-open-storefront/README.md)
+- [poc](metaplex-open-storefront)
 - [docs](https://docs.metaplex.com/)
 
 ## ZORA
 
 - Ethereum based NFT protocol
-- [poc](zora-open-storefront/README.md)
+- [poc](zora-open-storefront)
 - [docs](https://docs.zora.co/)
